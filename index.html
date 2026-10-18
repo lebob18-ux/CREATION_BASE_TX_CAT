@@ -258,7 +258,7 @@
     <div class="actions-bar">
         <button class="success" style="font-size: 1.05rem; padding: 14px;" onclick="saveAndNextSupport()">➡️ Enregistrer & Support Suivant</button>
         <div class="actions-bar-row">
-            <button class="secondary" onclick="exportCSV()">📥 Export CSV Chantier</button>
+            <button class="secondary" onclick="exportCSV()">📥 Export CSV (Coches Uniquement)</button>
             <button class="secondary" style="background:#dc2626;" onclick="resetCurrentSupport()">Réinitialiser Support</button>
         </div>
     </div>
@@ -385,7 +385,6 @@
                 .eq('support', support);
 
             if (data) {
-                // Seules les lignes présentes en BDD sont à 'true'
                 data.forEach(row => {
                     taskStates[row.tache_id] = true;
                 });
@@ -474,14 +473,12 @@
             return false;
         }
 
-        // 1. On nettoie les anciennes lignes BDD pour ce support
         await supabaseClient
             .from('releves_supports')
             .delete()
             .eq('chantier', chantier)
             .eq('support', support);
 
-        // 2. On prépare UNIQUEMENT les tâches cochées à true
         const rowsToInsert = [];
         for (const [type, tasks] of Object.entries(tasksByChapter)) {
             tasks.forEach(task => {
@@ -496,7 +493,6 @@
             });
         }
 
-        // 3. On n'insère que s'il y a au moins une tâche cochée
         if (rowsToInsert.length > 0) {
             const { error } = await supabaseClient
                 .from('releves_supports')
@@ -567,40 +563,28 @@
             return;
         }
 
-        // Récupérer tous les supports enregistrés pour ce chantier
+        // Récupère UNIQUEMENT les tâches enregistrées (cochées) avec leurs libellés et types
         const { data, error } = await supabaseClient
             .from('releves_supports')
-            .select('support, tache_id')
+            .select('support, taches_support(tache, type)')
             .eq('chantier', chantier);
 
         if (error || !data || data.length === 0) {
-            alert("Aucune donnée enregistrée pour ce chantier.");
+            alert("Aucune tâche cochée enregistrée pour ce chantier.");
             return;
         }
 
-        // Indexer les tâches faites par support
-        const doneBySupport = {};
+        let csvContent = "data:text/csv;charset=utf-8,Chantier;Support;Type;Tache\n";
         data.forEach(row => {
-            if (!doneBySupport[row.support]) doneBySupport[row.support] = new Set();
-            doneBySupport[row.support].add(row.tache_id);
+            const type = row.taches_support ? row.taches_support.type : "";
+            const tache = row.taches_support ? row.taches_support.tache : "";
+            csvContent += `"${chantier}";"${row.support}";"${type}";"${tache}"\n`;
         });
-
-        let csvContent = "data:text/csv;charset=utf-8,Chantier;Support;Type;Tache;Statut\n";
-        
-        // Pour chaque support et chaque tâche existante, générer la ligne CSV
-        for (const [supportNum, taskSet] of Object.entries(doneBySupport)) {
-            for (const [type, tasks] of Object.entries(tasksByChapter)) {
-                tasks.forEach(task => {
-                    const status = taskSet.has(task.id) ? "Fait" : "À faire";
-                    csvContent += `"${chantier}";"${supportNum}";"${type}";"${task.tache}";"${status}"\n`;
-                });
-            }
-        }
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `suivi_${chantier}.csv`);
+        link.setAttribute("download", `suivi_${chantier}_coches_seules.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
