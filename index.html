@@ -336,19 +336,29 @@
         renderChapters();
     }
 
+async function fetchAllRows(table, columns, filters) {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+        let q = supabaseClient.from(table).select(columns).range(from, from + pageSize - 1);
+        if (filters) q = filters(q);
+        const { data, error } = await q;
+        if (error) return { data: null, error };
+        all = all.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+    }
+    return { data: all, error: null };
+}
+
 async function loadChantiersList() {
     const select = document.getElementById('chantierSelect');
-    
-    // Mémoriser la sélection actuelle
     const currentSelection = select.value && select.value !== '__NEW__' ? select.value : null;
-    
+
     select.innerHTML = '<option value="">-- Sélectionner un chantier --</option><option value="__NEW__">+ Nouveau chantier</option>';
 
-    // .range(0, 4999) permet de dépasser la limite par défaut de 1000 lignes de Supabase
-    const { data, error } = await supabaseClient
-        .from('releves_supports')
-        .select('chantier')
-        .range(0, 4999);
+    const { data, error } = await fetchAllRows('releves_supports', 'chantier');
 
     if (error) {
         console.error("Erreur chargement chantiers:", error);
@@ -356,7 +366,6 @@ async function loadChantiersList() {
     }
 
     if (data) {
-        // Extraire les chantiers uniques, nettoyer les espaces et trier
         const uniqueChantiers = [...new Set(data.map(d => d.chantier ? d.chantier.trim() : ''))]
             .filter(ch => ch !== '')
             .sort();
@@ -369,7 +378,6 @@ async function loadChantiersList() {
         });
     }
 
-    // Rétablir le chantier sélectionné s'il est dans la liste
     if (currentSelection && [...select.options].some(opt => opt.value === currentSelection)) {
         select.value = currentSelection;
     }
@@ -405,11 +413,9 @@ async function loadChantiersList() {
 
         if (!chantier) return;
 
-        const { data } = await supabaseClient
-            .from('releves_supports')
-            .select('support')
-            .eq('chantier', chantier);
 
+const { data } = await fetchAllRows('releves_supports', 'support', q => q.eq('chantier', chantier));
+        
         if (data) {
             const uniqueSupports = [...new Set(data.map(d => d.support))].sort();
             uniqueSupports.forEach(sup => {
