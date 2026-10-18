@@ -4,10 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Suivi Travaux Support - Caténaires</title>
+    
+    <!-- Metatags PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Caténaires">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- Fonts et Supabase -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         :root {
             --primary: #1e3a8a;
@@ -26,6 +37,7 @@
             color: var(--text-main);
             margin: 0;
             padding: 16px;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .container {
@@ -84,7 +96,7 @@
             font-family: inherit;
         }
 
-        /* Chapitres en accordéon */
+        /* Accordéons */
         .chapter {
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -105,9 +117,7 @@
             user-select: none;
         }
 
-        .chapter-header:hover {
-            background: #dbeafe;
-        }
+        .chapter-header:hover { background: #dbeafe; }
 
         .chapter-title-group {
             display: flex;
@@ -120,9 +130,7 @@
             font-size: 0.8rem;
         }
 
-        .chapter.open .chevron {
-            transform: rotate(90deg);
-        }
+        .chapter.open .chevron { transform: rotate(90deg); }
 
         .chapter-body {
             display: none;
@@ -131,9 +139,7 @@
             border-top: 1px solid var(--border);
         }
 
-        .chapter.open .chapter-body {
-            display: block;
-        }
+        .chapter.open .chapter-body { display: block; }
 
         .task-item {
             display: flex;
@@ -142,9 +148,7 @@
             border-bottom: 1px solid #f0f0f0;
         }
 
-        .task-item:last-child {
-            border-bottom: none;
-        }
+        .task-item:last-child { border-bottom: none; }
 
         .task-item input[type="checkbox"] {
             width: 20px;
@@ -202,9 +206,7 @@
             gap: 10px;
         }
 
-        .actions-bar-row button {
-            flex: 1;
-        }
+        .actions-bar-row button { flex: 1; }
 
         .badge {
             font-size: 0.75rem;
@@ -220,32 +222,32 @@
 
 <div class="container">
     <header>
-        <h1>Suivi Travaux Support - Caténaires</h1>
-        <p class="subtitle">Saisie terrain multi-supports & synchronisation Supabase</p>
+        <h1>⚡ Suivi Travaux Support - Caténaires</h1>
+        <p class="subtitle">Application Terrain (PWA) & Sync Supabase</p>
     </header>
 
     <div class="card">
         <div class="grid-2">
             <div>
-                <label for="chantierName">Chantier / Sorte</label>
+                <label for="chantierName">Chantier / Secteur</label>
                 <input type="text" id="chantierName" placeholder="Ex: PARIS-SUD-2026" onchange="loadExistingSupports()">
             </div>
             <div>
-                <label for="supportSelect">Support Actuel</label>
+                <label for="supportSelect">Support Enregistré</label>
                 <select id="supportSelect" onchange="switchSupport()">
-                    <option value="">-- Sélectionner ou créer --</option>
+                    <option value="">-- Nouveau support --</option>
                 </select>
             </div>
         </div>
         <div style="margin-top: 10px;">
-            <label for="supportNumInput">N° du Support</label>
+            <label for="supportNumInput">N° du Support Actuel</label>
             <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
         </div>
     </div>
 
     <div class="card">
         <label>Chapitres de Travaux (Cliquer pour ouvrir)</label>
-        <div id="loader" style="text-align:center; padding:15px; color:#666;">Chargement des données...</div>
+        <div id="loader" style="text-align:center; padding:15px; color:#666;">Connexion aux données...</div>
         <div id="chaptersContainer"></div>
     </div>
 
@@ -264,9 +266,14 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let tasksByChapter = {};
-    let taskStates = {}; // Cle: task_id -> boolean
+    let taskStates = {};
 
     async function init() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker Enregistré'))
+                .catch(err => console.log('Erreur SW:', err));
+        }
         await loadTasks();
         loadExistingSupports();
     }
@@ -281,7 +288,7 @@
         document.getElementById('loader').style.display = 'none';
 
         if (error) {
-            alert("Erreur Supabase : " + error.message);
+            alert("Erreur chargement : " + error.message);
             return;
         }
 
@@ -328,7 +335,7 @@
                 <div class="chapter-body">
                     ${tasksHtml}
                     <div class="add-task-row">
-                        <input type="text" id="new_task_${type}" placeholder="Ajouter une tâche dans ${type}...">
+                        <input type="text" id="new_task_${type}" placeholder="Ajouter une tâche...">
                         <button onclick="addNewTask('${type}')">Ajouter</button>
                     </div>
                 </div>
@@ -338,8 +345,7 @@
     }
 
     function toggleChapter(type) {
-        const el = document.getElementById(`chapter_${type}`);
-        el.classList.toggle('open');
+        document.getElementById(`chapter_${type}`).classList.toggle('open');
     }
 
     function toggleTaskState(taskId) {
@@ -355,7 +361,7 @@
 
         if (!chantier) return;
 
-        const { data, error } = await supabaseClient
+        const { data } = await supabaseClient
             .from('releves_supports')
             .select('support')
             .eq('chantier', chantier);
@@ -400,7 +406,7 @@
         const support = document.getElementById('supportNumInput').value.trim();
 
         if (!chantier || !support) {
-            alert("Veuillez remplir le nom du chantier et le numéro de support.");
+            alert("Veuillez renseigner le chantier et le numéro du support.");
             return false;
         }
 
@@ -434,7 +440,6 @@
         const currentSupport = document.getElementById('supportNumInput').value.trim();
         let nextSupport = "S-01";
 
-        // Tente d'incrémenter le numéro à la fin de la chaîne (ex: S-01 -> S-02)
         const match = currentSupport.match(/^(.*?)(\d+)$/);
         if (match) {
             const prefix = match[1];
@@ -485,7 +490,7 @@
             .eq('chantier', chantier);
 
         if (error || !data || data.length === 0) {
-            alert("Aucune donnée enregistrée pour ce chantier.");
+            alert("Aucun relevé trouvé pour ce chantier.");
             return;
         }
 
