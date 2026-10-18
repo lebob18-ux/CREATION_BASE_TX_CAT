@@ -1,9 +1,10 @@
 {
-  "id": "/suivi-catenaires-app",
+  "id": "suivi-catenaires-pwa-v1",
   "name": "Suivi Travaux Support Caténaires",
   "short_name": "Suivi Caténaire",
   "description": "Saisie terrain multi-supports caténaires",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#1e3a8a",
