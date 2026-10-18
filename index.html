@@ -47,7 +47,6 @@
             letter-spacing: 0.05em;
         }
 
-        /* Bloc fixe en haut lors du défilement */
         .sticky-card {
             position: sticky;
             top: 0;
@@ -95,7 +94,6 @@
             background-color: white;
         }
 
-        /* Alignement cote à cote du Support et du Bouton */
         .support-save-row {
             display: flex;
             gap: 8px;
@@ -247,7 +245,6 @@
         <h1>CREATION_BASE_TX_CAT</h1>
     </header>
 
-    <!-- Bloc Fixe (Sticky) lors du scroll -->
     <div class="sticky-card">
         <div class="grid-2">
             <div>
@@ -265,7 +262,6 @@
             </div>
         </div>
 
-        <!-- Numéro de Support + Bouton Enregistrer & Conserver côte à côte -->
         <div class="support-save-row">
             <div class="input-group">
                 <label for="supportNumInput">N° du Support Actuel</label>
@@ -294,7 +290,18 @@
 
     let tasksByChapter = {};
     let taskStates = {}; // task_id -> boolean
+    let allTasksMap = {}; // task_id -> task object {id, type, tache}
     let openChapters = {}; // type -> boolean
+
+    // Exclusions mutuelles (au sein d'un MÊME chapitre)
+    const MUTUAL_EXCLUSIONS = {
+        "ARMEMENT": "ARMEMENT DOUBLE",
+        "ARMEMENT DOUBLE": "ARMEMENT",
+        "CHAISE ANTI-BALANCANT": "CONSOLE ANTI-BALANCANT",
+        "CONSOLE ANTI-BALANCANT": "CHAISE ANTI-BALANCANT",
+        "CONSOLE DE LIGNE": "POUTRE",
+        "POUTRE": "CONSOLE DE LIGNE"
+    };
 
     async function init() {
         if ('serviceWorker' in navigator) {
@@ -319,7 +326,9 @@
         }
 
         tasksByChapter = {};
+        allTasksMap = {};
         data.forEach(item => {
+            allTasksMap[item.id] = item;
             if (!tasksByChapter[item.type]) tasksByChapter[item.type] = [];
             tasksByChapter[item.type].push(item);
         });
@@ -473,21 +482,44 @@
 
     function toggleTaskState(type, taskId) {
         const checkbox = document.getElementById(`chk_${taskId}`);
-        const label = document.getElementById(`lbl_${taskId}`);
+        const currentTask = allTasksMap[taskId];
         
         taskStates[taskId] = checkbox.checked;
 
-        if (checkbox.checked) {
-            label.classList.add('done');
-        } else {
-            label.classList.remove('done');
+        // Exclusion mutuelle RESTREINTE AU MÊME CHAPITRE (type)
+        if (checkbox.checked && currentTask) {
+            const conflictingTaskName = MUTUAL_EXCLUSIONS[currentTask.tache];
+            if (conflictingTaskName) {
+                // Chercher la tâche opposée SEULEMENT dans le même chapitre (currentTask.type)
+                const chapterTasks = tasksByChapter[currentTask.type] || [];
+                chapterTasks.forEach(otherTask => {
+                    if (otherTask.tache === conflictingTaskName && taskStates[otherTask.id]) {
+                        taskStates[otherTask.id] = false;
+                        const otherChk = document.getElementById(`chk_${otherTask.id}`);
+                        if (otherChk) otherChk.checked = false;
+                        const otherLbl = document.getElementById(`lbl_${otherTask.id}`);
+                        if (otherLbl) otherLbl.classList.remove('done');
+                    }
+                });
+            }
         }
 
-        const tasks = tasksByChapter[type] || [];
-        const checkedCount = tasks.filter(t => taskStates[t.id]).length;
+        // Mettre à jour les styles et les compteurs du chapitre impacté
+        const chapterTasks = tasksByChapter[type] || [];
+        chapterTasks.forEach(t => {
+            const lbl = document.getElementById(`lbl_${t.id}`);
+            const chk = document.getElementById(`chk_${t.id}`);
+            if (chk) chk.checked = !!taskStates[t.id];
+            if (lbl) {
+                if (taskStates[t.id]) lbl.classList.add('done');
+                else lbl.classList.remove('done');
+            }
+        });
+
+        const checkedCount = chapterTasks.filter(t => taskStates[t.id]).length;
         const badge = document.getElementById(`badge_${type}`);
         if (badge) {
-            badge.textContent = `${checkedCount} / ${tasks.length} coche(s)`;
+            badge.textContent = `${checkedCount} / ${chapterTasks.length} coche(s)`;
         }
     }
 
@@ -556,7 +588,9 @@
         }
 
         if (data && data.length > 0) {
-            tasksByChapter[type].push(data[0]);
+            const newItem = data[0];
+            allTasksMap[newItem.id] = newItem;
+            tasksByChapter[type].push(newItem);
             input.value = '';
             renderChapters();
         }
