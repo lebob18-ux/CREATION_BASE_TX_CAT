@@ -265,7 +265,7 @@
         <div class="support-save-row">
             <div class="input-group">
                 <label for="supportNumInput">N° du Support Actuel</label>
-                <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
+                <input type="text" id="supportNumInput" placeholder="Ex: S-01, ANC-02..." oninput="onSupportInputChanged()">
             </div>
             <button class="success" onclick="saveSupport()">💾 Enregistrer & Conserver</button>
         </div>
@@ -429,11 +429,26 @@
         renderChapters();
     }
 
+    function onSupportInputChanged() {
+        renderChapters();
+    }
+
     function renderChapters() {
         const container = document.getElementById('chaptersContainer');
         container.innerHTML = '';
 
+        const supportText = (document.getElementById('supportNumInput').value || '').toLowerCase();
+        const containsAnc = supportText.includes('anc');
+
         for (const [type, tasks] of Object.entries(tasksByChapter)) {
+            // Filtrage conditionnel des chapitres
+            if (type === 'POSE_ANC' && !containsAnc) {
+                continue; // Ne pas afficher POSE_ANC si le support ne contient pas "anc"
+            }
+            if (type === 'POSE_SUPPORT' && containsAnc) {
+                continue; // Masquer POSE_SUPPORT si c'est un ancrage
+            }
+
             const checkedCount = tasks.filter(t => taskStates[t.id]).length;
             const isOpen = !!openChapters[type];
             
@@ -486,11 +501,9 @@
         
         taskStates[taskId] = checkbox.checked;
 
-        // Exclusion mutuelle RESTREINTE AU MÊME CHAPITRE (type)
         if (checkbox.checked && currentTask) {
             const conflictingTaskName = MUTUAL_EXCLUSIONS[currentTask.tache];
             if (conflictingTaskName) {
-                // Chercher la tâche opposée SEULEMENT dans le même chapitre (currentTask.type)
                 const chapterTasks = tasksByChapter[currentTask.type] || [];
                 chapterTasks.forEach(otherTask => {
                     if (otherTask.tache === conflictingTaskName && taskStates[otherTask.id]) {
@@ -504,7 +517,6 @@
             }
         }
 
-        // Mettre à jour les styles et les compteurs du chapitre impacté
         const chapterTasks = tasksByChapter[type] || [];
         chapterTasks.forEach(t => {
             const lbl = document.getElementById(`lbl_${t.id}`);
