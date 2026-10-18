@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Suivi Travaux Support - Caténaires</title>
+    <title>CREATION_BASE_TX_CAT</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e3a8a">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 16px;
+            padding: 8px;
         }
 
         .container {
@@ -37,67 +37,94 @@
 
         header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
 
         h1 {
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             color: var(--primary);
-            margin: 0 0 4px 0;
+            margin: 4px 0;
+            letter-spacing: 0.05em;
         }
 
-        p.subtitle {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin: 0;
+        /* Bloc fixe en haut lors du défilement */
+        .sticky-card {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
         }
 
         .card {
             background: var(--card-bg);
             border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-            padding: 16px;
-            margin-bottom: 16px;
+            padding: 12px;
+            margin-bottom: 12px;
         }
 
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 8px;
         }
 
         label {
             display: block;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             color: var(--primary);
         }
 
         input[type="text"], select {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 1px solid var(--border);
             border-radius: 8px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             box-sizing: border-box;
             font-family: inherit;
             background-color: white;
         }
 
+        /* Alignement cote à cote du Support et du Bouton */
+        .support-save-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            margin-top: 8px;
+        }
+
+        .support-save-row .input-group {
+            flex: 1;
+        }
+
+        .support-save-row button {
+            white-space: nowrap;
+            height: 38px;
+            padding: 0 12px;
+            font-size: 0.85rem;
+        }
+
         .chapter {
             border: 1px solid var(--border);
             border-radius: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             overflow: hidden;
             background: #ffffff;
         }
 
         .chapter-header {
             background: #e5edff;
-            padding: 12px 16px;
+            padding: 10px 14px;
             font-weight: 700;
             color: var(--primary);
             display: flex;
@@ -129,7 +156,7 @@
 
         .chapter-body {
             display: none;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: white;
             border-top: 1px solid var(--border);
         }
@@ -169,13 +196,13 @@
         .add-task-row {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
+            margin-top: 10px;
+            padding-top: 10px;
             border-top: 1px dashed var(--border);
         }
 
         .add-task-row input {
-            padding: 8px;
+            padding: 6px;
             font-size: 0.85rem;
         }
 
@@ -183,7 +210,7 @@
             background: var(--accent);
             color: white;
             border: none;
-            padding: 10px 14px;
+            padding: 8px 12px;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
@@ -193,16 +220,10 @@
         button.success { background: #059669; }
         button.secondary { background: #4b5563; }
 
-        .actions-bar {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 16px;
-        }
-
         .actions-bar-row {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            margin-top: 12px;
         }
 
         .actions-bar-row button {
@@ -223,18 +244,18 @@
 
 <div class="container">
     <header>
-        <h1>Suivi Travaux Support - Caténaires</h1>
-        <p class="subtitle">Saisie terrain multi-supports & synchronisation Supabase</p>
+        <h1>CREATION_BASE_TX_CAT</h1>
     </header>
 
-    <div class="card">
+    <!-- Bloc Fixe (Sticky) lors du scroll -->
+    <div class="sticky-card">
         <div class="grid-2">
             <div>
                 <label for="chantierSelect">Chantier / Sorte</label>
                 <select id="chantierSelect" onchange="onChantierChange()">
                     <option value="">-- Charger chantiers... --</option>
                 </select>
-                <input type="text" id="chantierNewInput" placeholder="Nom du nouveau chantier..." style="display:none; margin-top:8px;" onchange="loadExistingSupports()">
+                <input type="text" id="chantierNewInput" placeholder="Nom du nouveau chantier..." style="display:none; margin-top:6px;" onchange="loadExistingSupports()">
             </div>
             <div>
                 <label for="supportSelect">Support Existants</label>
@@ -243,9 +264,14 @@
                 </select>
             </div>
         </div>
-        <div style="margin-top: 12px;">
-            <label for="supportNumInput">N° du Support Actuel</label>
-            <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
+
+        <!-- Numéro de Support + Bouton Enregistrer & Conserver côte à côte -->
+        <div class="support-save-row">
+            <div class="input-group">
+                <label for="supportNumInput">N° du Support Actuel</label>
+                <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
+            </div>
+            <button class="success" onclick="saveSupport()">💾 Enregistrer & Conserver</button>
         </div>
     </div>
 
@@ -253,10 +279,7 @@
         <label>Chapitres de Travaux (Cliquer pour ouvrir)</label>
         <div id="loader" style="text-align:center; padding:15px; color:#666;">Chargement des données...</div>
         <div id="chaptersContainer"></div>
-    </div>
 
-    <div class="actions-bar">
-        <button class="success" style="font-size: 1.05rem; padding: 14px;" onclick="saveSupport()">💾 Enregistrer & Conserver</button>
         <div class="actions-bar-row">
             <button class="secondary" onclick="exportCSV()">📥 Export CSV (Coches Uniquement)</button>
             <button class="secondary" style="background:#dc2626;" onclick="resetCurrentSupport()">Réinitialiser Support</button>
@@ -508,7 +531,6 @@
             }
         }
 
-        // Met à jour la liste des chantiers et supports en arrière-plan sans effacer le texte saisi
         await loadChantiersList();
         const selectChantier = document.getElementById('chantierSelect');
         if (selectChantier.value === '__NEW__') {
