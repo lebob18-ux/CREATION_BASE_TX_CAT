@@ -84,9 +84,9 @@
             font-size: 0.95rem;
             box-sizing: border-box;
             font-family: inherit;
+            background-color: white;
         }
 
-        /* Chapitres en accordéon */
         .chapter {
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -230,18 +230,21 @@
     <div class="card">
         <div class="grid-2">
             <div>
-                <label for="chantierName">Chantier / Sorte</label>
-                <input type="text" id="chantierName" placeholder="Ex: PARIS-SUD-2026" onchange="loadExistingSupports()">
+                <label for="chantierSelect">Chantier / Sorte</label>
+                <select id="chantierSelect" onchange="onChantierChange()">
+                    <option value="">-- Charger chantiers... --</option>
+                </select>
+                <input type="text" id="chantierNewInput" placeholder="Nom du nouveau chantier..." style="display:none; margin-top:8px;" onchange="loadExistingSupports()">
             </div>
             <div>
-                <label for="supportSelect">Support Actuel</label>
+                <label for="supportSelect">Support Existants</label>
                 <select id="supportSelect" onchange="switchSupport()">
-                    <option value="">-- Sélectionner ou créer --</option>
+                    <option value="">-- Sélectionner --</option>
                 </select>
             </div>
         </div>
-        <div style="margin-top: 10px;">
-            <label for="supportNumInput">N° du Support</label>
+        <div style="margin-top: 12px;">
+            <label for="supportNumInput">N° du Support Actuel</label>
             <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
         </div>
     </div>
@@ -268,14 +271,14 @@
 
     let tasksByChapter = {};
     let taskStates = {}; // task_id -> boolean
-    let openChapters = {}; // type -> boolean (garde l'état d'ouverture)
+    let openChapters = {}; // type -> boolean
 
     async function init() {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
         }
         await loadTasks();
-        loadExistingSupports();
+        await loadChantiersList();
     }
 
     async function loadTasks() {
@@ -298,6 +301,95 @@
             tasksByChapter[item.type].push(item);
         });
 
+        renderChapters();
+    }
+
+    async function loadChantiersList() {
+        const select = document.getElementById('chantierSelect');
+        select.innerHTML = '<option value="">-- Sélectionner un chantier --</option><option value="__NEW__">+ Nouveau chantier</option>';
+
+        const { data } = await supabaseClient
+            .from('releves_supports')
+            .select('chantier');
+
+        if (data) {
+            const uniqueChantiers = [...new Set(data.map(d => d.chantier))].sort();
+            uniqueChantiers.forEach(ch => {
+                const opt = document.createElement('option');
+                opt.value = ch;
+                opt.textContent = ch;
+                select.insertBefore(opt, select.lastElementChild);
+            });
+        }
+    }
+
+    function onChantierChange() {
+        const select = document.getElementById('chantierSelect');
+        const newInput = document.getElementById('chantierNewInput');
+
+        if (select.value === '__NEW__') {
+            newInput.style.display = 'block';
+            newInput.value = '';
+            newInput.focus();
+        } else {
+            newInput.style.display = 'none';
+            newInput.value = '';
+        }
+        loadExistingSupports();
+    }
+
+    function getSelectedChantierName() {
+        const select = document.getElementById('chantierSelect');
+        if (select.value === '__NEW__') {
+            return document.getElementById('chantierNewInput').value.trim();
+        }
+        return select.value.trim();
+    }
+
+    async function loadExistingSupports() {
+        const chantier = getSelectedChantierName();
+        const select = document.getElementById('supportSelect');
+        select.innerHTML = '<option value="">-- Nouveau support --</option>';
+
+        if (!chantier) return;
+
+        const { data } = await supabaseClient
+            .from('releves_supports')
+            .select('support')
+            .eq('chantier', chantier);
+
+        if (data) {
+            const uniqueSupports = [...new Set(data.map(d => d.support))].sort();
+            uniqueSupports.forEach(sup => {
+                const opt = document.createElement('option');
+                opt.value = sup;
+                opt.textContent = sup;
+                select.appendChild(opt);
+            });
+        }
+    }
+
+    async function switchSupport() {
+        const select = document.getElementById('supportSelect');
+        const chantier = getSelectedChantierName();
+        const support = select.value;
+
+        document.getElementById('supportNumInput').value = support;
+        taskStates = {};
+
+        if (support && chantier) {
+            const { data } = await supabaseClient
+                .from('releves_supports')
+                .select('tache_id, cochaite')
+                .eq('chantier', chantier)
+                .eq('support', support);
+
+            if (data) {
+                data.forEach(row => {
+                    taskStates[row.tache_id] = row.cochaite;
+                });
+            }
+        }
         renderChapters();
     }
 
@@ -364,7 +456,6 @@
             label.classList.remove('done');
         }
 
-        // Mettre à jour uniquement le badge du chapitre sans re-rendre tout le HTML
         const tasks = tasksByChapter[type] || [];
         const checkedCount = tasks.filter(t => taskStates[t.id]).length;
         const badge = document.getElementById(`badge_${type}`);
@@ -373,59 +464,12 @@
         }
     }
 
-    async function loadExistingSupports() {
-        const chantier = document.getElementById('chantierName').value.trim();
-        const select = document.getElementById('supportSelect');
-        select.innerHTML = '<option value="">+ Nouveau support</option>';
-
-        if (!chantier) return;
-
-        const { data } = await supabaseClient
-            .from('releves_supports')
-            .select('support')
-            .eq('chantier', chantier);
-
-        if (data) {
-            const uniqueSupports = [...new Set(data.map(d => d.support))];
-            uniqueSupports.forEach(sup => {
-                const opt = document.createElement('option');
-                opt.value = sup;
-                opt.textContent = sup;
-                select.appendChild(opt);
-            });
-        }
-    }
-
-    async function switchSupport() {
-        const select = document.getElementById('supportSelect');
-        const chantier = document.getElementById('chantierName').value.trim();
-        const support = select.value;
-
-        document.getElementById('supportNumInput').value = support;
-        taskStates = {};
-
-        if (support && chantier) {
-            const { data } = await supabaseClient
-                .from('releves_supports')
-                .select('tache_id, cochaite')
-                .eq('chantier', chantier)
-                .eq('support', support);
-
-            if (data) {
-                data.forEach(row => {
-                    taskStates[row.tache_id] = row.cochaite;
-                });
-            }
-        }
-        renderChapters();
-    }
-
     async function saveCurrentSupport() {
-        const chantier = document.getElementById('chantierName').value.trim();
+        const chantier = getSelectedChantierName();
         const support = document.getElementById('supportNumInput').value.trim();
 
         if (!chantier || !support) {
-            alert("Veuillez remplir le nom du chantier et le numéro de support.");
+            alert("Veuillez sélectionner un chantier et saisir un numéro de support.");
             return false;
         }
 
@@ -469,8 +513,13 @@
 
         document.getElementById('supportNumInput').value = nextSupport;
         taskStates = {};
+        await loadChantiersList();
+        
+        const chantier = getSelectedChantierName();
+        document.getElementById('chantierSelect').value = chantier;
         await loadExistingSupports();
         document.getElementById('supportSelect').value = "";
+        
         renderChapters();
     }
 
@@ -497,9 +546,9 @@
     }
 
     async function exportCSV() {
-        const chantier = document.getElementById('chantierName').value.trim();
+        const chantier = getSelectedChantierName();
         if (!chantier) {
-            alert("Saisissez un nom de chantier pour exporter.");
+            alert("Sélectionnez un chantier à exporter.");
             return;
         }
 
