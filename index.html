@@ -336,26 +336,42 @@
         renderChapters();
     }
 
-    async function loadChantiersList() {
-        const select = document.getElementById('chantierSelect');
-        const currentSelection = select.value;
-        select.innerHTML = '<option value="">-- Sélectionner un chantier --</option><option value="__NEW__">+ Nouveau chantier</option>';
+async function loadChantiersList() {
+    const select = document.getElementById('chantierSelect');
+    
+    // 1. Mémoriser la sélection actuelle (si l'utilisateur a déjà choisi un chantier)
+    const currentSelection = select.value && select.value !== '__NEW__' ? select.value : null;
+    
+    select.innerHTML = '<option value="">-- Sélectionner un chantier --</option><option value="__NEW__">+ Nouveau chantier</option>';
 
-        const { data } = await supabaseClient
-            .from('releves_supports')
-            .select('chantier');
+    const { data, error } = await supabaseClient
+        .from('releves_supports')
+        .select('chantier');
 
-        if (data) {
-            const uniqueChantiers = [...new Set(data.map(d => d.chantier))].sort();
-            uniqueChantiers.forEach(ch => {
-                const opt = document.createElement('option');
-                opt.value = ch;
-                opt.textContent = ch;
-                select.insertBefore(opt, select.lastElementChild);
-            });
-        }
-        if (currentSelection) select.value = currentSelection;
+    if (error) {
+        console.error("Erreur chargement chantiers:", error);
+        return;
     }
+
+    if (data) {
+        // Extraire les chantiers uniques, nettoyer les espaces superflus et trier
+        const uniqueChantiers = [...new Set(data.map(d => d.chantier ? d.chantier.trim() : ''))]
+            .filter(ch => ch !== '')
+            .sort();
+
+        uniqueChantiers.forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch;
+            opt.textContent = ch;
+            select.insertBefore(opt, select.lastElementChild);
+        });
+    }
+
+    // 2. Retablir le chantier sélectionné s'il existe toujours dans la liste
+    if (currentSelection && [...select.options].some(opt => opt.value === currentSelection)) {
+        select.value = currentSelection;
+    }
+}
 
     function onChantierChange() {
         const select = document.getElementById('chantierSelect');
