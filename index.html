@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi Travaux Support - Caténaires</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #1e40af;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --accent: #2563eb;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            color: var(--primary);
+            margin: 0 0 4px 0;
+        }
+
+        p.subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            color: var(--primary);
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        /* Chapitres en accordéon */
+        .chapter {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .chapter-header {
+            background: #e5edff;
+            padding: 12px 16px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .chapter-header:hover {
+            background: #dbeafe;
+        }
+
+        .chapter-title-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chevron {
+            transition: transform 0.2s ease;
+            font-size: 0.8rem;
+        }
+
+        .chapter.open .chevron {
+            transform: rotate(90deg);
+        }
+
+        .chapter-body {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border-top: 1px solid var(--border);
+        }
+
+        .chapter.open .chapter-body {
+            display: block;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+        }
+
+        .task-label {
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .task-label.done {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .add-task-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .add-task-row input {
+            padding: 8px;
+            font-size: 0.85rem;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        button.success { background: #059669; }
+        button.secondary { background: #4b5563; }
+
+        .actions-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .actions-bar-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .actions-bar-row button {
+            flex: 1;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #ffffff;
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Suivi Travaux Support - Caténaires</h1>
+        <p class="subtitle">Saisie terrain multi-supports & synchronisation Supabase</p>
+    </header>
+
+    <div class="card">
+        <div class="grid-2">
+            <div>
+                <label for="chantierName">Chantier / Sorte</label>
+                <input type="text" id="chantierName" placeholder="Ex: PARIS-SUD-2026" onchange="loadExistingSupports()">
+            </div>
+            <div>
+                <label for="supportSelect">Support Actuel</label>
+                <select id="supportSelect" onchange="switchSupport()">
+                    <option value="">-- Sélectionner ou créer --</option>
+                </select>
+            </div>
+        </div>
+        <div style="margin-top: 10px;">
+            <label for="supportNumInput">N° du Support</label>
+            <input type="text" id="supportNumInput" placeholder="Ex: S-01, P-102...">
+        </div>
+    </div>
+
+    <div class="card">
+        <label>Chapitres de Travaux (Cliquer pour ouvrir)</label>
+        <div id="loader" style="text-align:center; padding:15px; color:#666;">Chargement des données...</div>
+        <div id="chaptersContainer"></div>
+    </div>
+
+    <div class="actions-bar">
+        <button class="success" style="font-size: 1.05rem; padding: 14px;" onclick="saveAndNextSupport()">➡️ Enregistrer & Support Suivant</button>
+        <div class="actions-bar-row">
+            <button class="secondary" onclick="exportCSV()">📥 Export CSV Chantier</button>
+            <button class="secondary" style="background:#dc2626;" onclick="resetCurrentSupport()">Réinitialiser Support</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://owtqtwktvrkblvzzpezz.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_zxwuWmbs7I7oJTfVnV2v2w_qvAe8bWU";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let tasksByChapter = {};
+    let taskStates = {}; // Cle: task_id -> boolean
+
+    async function init() {
+        await loadTasks();
+        loadExistingSupports();
+    }
+
+    async function loadTasks() {
+        const { data, error } = await supabaseClient
+            .from('taches_support')
+            .select('*')
+            .order('type', { ascending: true })
+            .order('tache', { ascending: true });
+
+        document.getElementById('loader').style.display = 'none';
+
+        if (error) {
+            alert("Erreur Supabase : " + error.message);
+            return;
+        }
+
+        tasksByChapter = {};
+        data.forEach(item => {
+            if (!tasksByChapter[item.type]) tasksByChapter[item.type] = [];
+            tasksByChapter[item.type].push(item);
+        });
+
+        renderChapters();
+    }
+
+    function renderChapters() {
+        const container = document.getElementById('chaptersContainer');
+        container.innerHTML = '';
+
+        for (const [type, tasks] of Object.entries(tasksByChapter)) {
+            const checkedCount = tasks.filter(t => taskStates[t.id]).length;
+            const chapterDiv = document.createElement('div');
+            chapterDiv.className = 'chapter';
+            chapterDiv.id = `chapter_${type}`;
+
+            let tasksHtml = '';
+            tasks.forEach(task => {
+                const isChecked = taskStates[task.id] ? 'checked' : '';
+                const doneClass = taskStates[task.id] ? 'done' : '';
+
+                tasksHtml += `
+                    <div class="task-item">
+                        <input type="checkbox" id="chk_${task.id}" ${isChecked} onchange="toggleTaskState('${task.id}')">
+                        <label class="task-label ${doneClass}" for="chk_${task.id}">${task.tache}</label>
+                    </div>
+                `;
+            });
+
+            chapterDiv.innerHTML = `
+                <div class="chapter-header" onclick="toggleChapter('${type}')">
+                    <div class="chapter-title-group">
+                        <span class="chevron">▶</span>
+                        <span>${type}</span>
+                    </div>
+                    <span class="badge">${checkedCount} / ${tasks.length} coche(s)</span>
+                </div>
+                <div class="chapter-body">
+                    ${tasksHtml}
+                    <div class="add-task-row">
+                        <input type="text" id="new_task_${type}" placeholder="Ajouter une tâche dans ${type}...">
+                        <button onclick="addNewTask('${type}')">Ajouter</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(chapterDiv);
+        }
+    }
+
+    function toggleChapter(type) {
+        const el = document.getElementById(`chapter_${type}`);
+        el.classList.toggle('open');
+    }
+
+    function toggleTaskState(taskId) {
+        const checkbox = document.getElementById(`chk_${taskId}`);
+        taskStates[taskId] = checkbox.checked;
+        renderChapters();
+    }
+
+    async function loadExistingSupports() {
+        const chantier = document.getElementById('chantierName').value.trim();
+        const select = document.getElementById('supportSelect');
+        select.innerHTML = '<option value="">+ Nouveau support</option>';
+
+        if (!chantier) return;
+
+        const { data, error } = await supabaseClient
+            .from('releves_supports')
+            .select('support')
+            .eq('chantier', chantier);
+
+        if (data) {
+            const uniqueSupports = [...new Set(data.map(d => d.support))];
+            uniqueSupports.forEach(sup => {
+                const opt = document.createElement('option');
+                opt.value = sup;
+                opt.textContent = sup;
+                select.appendChild(opt);
+            });
+        }
+    }
+
+    async function switchSupport() {
+        const select = document.getElementById('supportSelect');
+        const chantier = document.getElementById('chantierName').value.trim();
+        const support = select.value;
+
+        document.getElementById('supportNumInput').value = support;
+        taskStates = {};
+
+        if (support && chantier) {
+            const { data } = await supabaseClient
+                .from('releves_supports')
+                .select('tache_id, cochaite')
+                .eq('chantier', chantier)
+                .eq('support', support);
+
+            if (data) {
+                data.forEach(row => {
+                    taskStates[row.tache_id] = row.cochaite;
+                });
+            }
+        }
+        renderChapters();
+    }
+
+    async function saveCurrentSupport() {
+        const chantier = document.getElementById('chantierName').value.trim();
+        const support = document.getElementById('supportNumInput').value.trim();
+
+        if (!chantier || !support) {
+            alert("Veuillez remplir le nom du chantier et le numéro de support.");
+            return false;
+        }
+
+        const rows = [];
+        for (const [type, tasks] of Object.entries(tasksByChapter)) {
+            tasks.forEach(task => {
+                rows.push({
+                    chantier: chantier,
+                    support: support,
+                    tache_id: task.id,
+                    cochaite: !!taskStates[task.id]
+                });
+            });
+        }
+
+        const { error } = await supabaseClient
+            .from('releves_supports')
+            .upsert(rows, { onConflict: 'chantier,support,tache_id' });
+
+        if (error) {
+            alert("Erreur de sauvegarde : " + error.message);
+            return false;
+        }
+        return true;
+    }
+
+    async function saveAndNextSupport() {
+        const ok = await saveCurrentSupport();
+        if (!ok) return;
+
+        const currentSupport = document.getElementById('supportNumInput').value.trim();
+        let nextSupport = "S-01";
+
+        // Tente d'incrémenter le numéro à la fin de la chaîne (ex: S-01 -> S-02)
+        const match = currentSupport.match(/^(.*?)(\d+)$/);
+        if (match) {
+            const prefix = match[1];
+            const num = parseInt(match[2], 10) + 1;
+            const paddedNum = String(num).padStart(match[2].length, '0');
+            nextSupport = prefix + paddedNum;
+        }
+
+        document.getElementById('supportNumInput').value = nextSupport;
+        taskStates = {};
+        await loadExistingSupports();
+        document.getElementById('supportSelect').value = "";
+        renderChapters();
+    }
+
+    async function addNewTask(type) {
+        const input = document.getElementById(`new_task_${type}`);
+        const text = input.value.trim().toUpperCase();
+        if (!text) return;
+
+        const { data, error } = await supabaseClient
+            .from('taches_support')
+            .insert([{ tache: text, type: type }])
+            .select();
+
+        if (error) {
+            alert("Erreur d'ajout : " + error.message);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            tasksByChapter[type].push(data[0]);
+            input.value = '';
+            renderChapters();
+        }
+    }
+
+    async function exportCSV() {
+        const chantier = document.getElementById('chantierName').value.trim();
+        if (!chantier) {
+            alert("Saisissez un nom de chantier pour exporter.");
+            return;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('releves_supports')
+            .select('support, cochaite, taches_support(tache, type)')
+            .eq('chantier', chantier);
+
+        if (error || !data || data.length === 0) {
+            alert("Aucune donnée enregistrée pour ce chantier.");
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,Chantier;Support;Type;Tache;Statut\n";
+        data.forEach(row => {
+            const status = row.cochaite ? "Fait" : "À faire";
+            csvContent += `"${chantier}";"${row.support}";"${row.taches_support.type}";"${row.taches_support.tache}";"${status}"\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `suivi_${chantier}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function resetCurrentSupport() {
+        if (confirm("Décocher toutes les cases de ce support ?")) {
+            taskStates = {};
+            renderChapters();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
