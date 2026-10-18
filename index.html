@@ -256,7 +256,7 @@
     </div>
 
     <div class="actions-bar">
-        <button class="success" style="font-size: 1.05rem; padding: 14px;" onclick="saveAndNextSupport()">➡️ Enregistrer & Support Suivant</button>
+        <button class="success" style="font-size: 1.05rem; padding: 14px;" onclick="saveSupport()">💾 Enregistrer & Conserver</button>
         <div class="actions-bar-row">
             <button class="secondary" onclick="exportCSV()">📥 Export CSV (Coches Uniquement)</button>
             <button class="secondary" style="background:#dc2626;" onclick="resetCurrentSupport()">Réinitialiser Support</button>
@@ -306,6 +306,7 @@
 
     async function loadChantiersList() {
         const select = document.getElementById('chantierSelect');
+        const currentSelection = select.value;
         select.innerHTML = '<option value="">-- Sélectionner un chantier --</option><option value="__NEW__">+ Nouveau chantier</option>';
 
         const { data } = await supabaseClient
@@ -321,6 +322,7 @@
                 select.insertBefore(opt, select.lastElementChild);
             });
         }
+        if (currentSelection) select.value = currentSelection;
     }
 
     function onChantierChange() {
@@ -349,7 +351,7 @@
     async function loadExistingSupports() {
         const chantier = getSelectedChantierName();
         const select = document.getElementById('supportSelect');
-        select.innerHTML = '<option value="">-- Nouveau support --</option>';
+        select.innerHTML = '<option value="">-- Support existants --</option>';
 
         if (!chantier) return;
 
@@ -373,6 +375,8 @@
         const select = document.getElementById('supportSelect');
         const chantier = getSelectedChantierName();
         const support = select.value;
+
+        if (!support) return;
 
         document.getElementById('supportNumInput').value = support;
         taskStates = {};
@@ -464,13 +468,13 @@
         }
     }
 
-    async function saveCurrentSupport() {
+    async function saveSupport() {
         const chantier = getSelectedChantierName();
         const support = document.getElementById('supportNumInput').value.trim();
 
         if (!chantier || !support) {
             alert("Veuillez sélectionner un chantier et saisir un numéro de support.");
-            return false;
+            return;
         }
 
         await supabaseClient
@@ -500,38 +504,18 @@
 
             if (error) {
                 alert("Erreur de sauvegarde : " + error.message);
-                return false;
+                return;
             }
         }
 
-        return true;
-    }
-
-    async function saveAndNextSupport() {
-        const ok = await saveCurrentSupport();
-        if (!ok) return;
-
-        const currentSupport = document.getElementById('supportNumInput').value.trim();
-        let nextSupport = "S-01";
-
-        const match = currentSupport.match(/^(.*?)(\d+)$/);
-        if (match) {
-            const prefix = match[1];
-            const num = parseInt(match[2], 10) + 1;
-            const paddedNum = String(num).padStart(match[2].length, '0');
-            nextSupport = prefix + paddedNum;
-        }
-
-        document.getElementById('supportNumInput').value = nextSupport;
-        taskStates = {};
+        // Met à jour la liste des chantiers et supports en arrière-plan sans effacer le texte saisi
         await loadChantiersList();
-        
-        const chantier = getSelectedChantierName();
-        document.getElementById('chantierSelect').value = chantier;
+        const selectChantier = document.getElementById('chantierSelect');
+        if (selectChantier.value === '__NEW__') {
+            selectChantier.value = chantier;
+            document.getElementById('chantierNewInput').style.display = 'none';
+        }
         await loadExistingSupports();
-        document.getElementById('supportSelect').value = "";
-        
-        renderChapters();
     }
 
     async function addNewTask(type) {
@@ -563,7 +547,6 @@
             return;
         }
 
-        // Récupère UNIQUEMENT les tâches enregistrées (cochées) avec leurs libellés et types
         const { data, error } = await supabaseClient
             .from('releves_supports')
             .select('support, taches_support(tache, type)')
