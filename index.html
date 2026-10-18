@@ -380,13 +380,14 @@
         if (support && chantier) {
             const { data } = await supabaseClient
                 .from('releves_supports')
-                .select('tache_id, cochaite')
+                .select('tache_id')
                 .eq('chantier', chantier)
                 .eq('support', support);
 
             if (data) {
+                // Seules les lignes présentes en BDD sont à 'true'
                 data.forEach(row => {
-                    taskStates[row.tache_id] = row.cochaite;
+                    taskStates[row.tache_id] = true;
                 });
             }
         }
@@ -473,26 +474,40 @@
             return false;
         }
 
-        const rows = [];
+        // 1. On nettoie les anciennes lignes BDD pour ce support
+        await supabaseClient
+            .from('releves_supports')
+            .delete()
+            .eq('chantier', chantier)
+            .eq('support', support);
+
+        // 2. On prépare UNIQUEMENT les tâches cochées à true
+        const rowsToInsert = [];
         for (const [type, tasks] of Object.entries(tasksByChapter)) {
             tasks.forEach(task => {
-                rows.push({
-                    chantier: chantier,
-                    support: support,
-                    tache_id: task.id,
-                    cochaite: !!taskStates[task.id]
-                });
+                if (taskStates[task.id]) {
+                    rowsToInsert.push({
+                        chantier: chantier,
+                        support: support,
+                        tache_id: task.id,
+                        cochaite: true
+                    });
+                }
             });
         }
 
-        const { error } = await supabaseClient
-            .from('releves_supports')
-            .upsert(rows, { onConflict: 'chantier,support,tache_id' });
+        // 3. On n'insère que s'il y a au moins une tâche cochée
+        if (rowsToInsert.length > 0) {
+            const { error } = await supabaseClient
+                .from('releves_supports')
+                .insert(rowsToInsert);
 
-        if (error) {
-            alert("Erreur de sauvegarde : " + error.message);
-            return false;
+            if (error) {
+                alert("Erreur de sauvegarde : " + error.message);
+                return false;
+            }
         }
+
         return true;
     }
 
@@ -552,9 +567,10 @@
             return;
         }
 
+        // Récupérer tous les supports enregistrés pour ce chantier
         const { data, error } = await supabaseClient
             .from('releves_supports')
-            .select('support, cochaite, taches_support(tache, type)')
+            .select('support, tache_id')
             .eq('chantier', chantier);
 
         if (error || !data || data.length === 0) {
@@ -562,11 +578,24 @@
             return;
         }
 
-        let csvContent = "data:text/csv;charset=utf-8,Chantier;Support;Type;Tache;Statut\n";
+        // Indexer les tâches faites par support
+        const doneBySupport = {};
         data.forEach(row => {
-            const status = row.cochaite ? "Fait" : "À faire";
-            csvContent += `"${chantier}";"${row.support}";"${row.taches_support.type}";"${row.taches_support.tache}";"${status}"\n`;
+            if (!doneBySupport[row.support]) doneBySupport[row.support] = new Set();
+            doneBySupport[row.support].add(row.tache_id);
         });
+
+        let csvContent = "data:text/csv;charset=utf-8,Chantier;Support;Type;Tache;Statut\n";
+        
+        // Pour chaque support et chaque tâche existante, générer la ligne CSV
+        for (const [supportNum, taskSet] of Object.entries(doneBySupport)) {
+            for (const [type, tasks] of Object.entries(tasksByChapter)) {
+                tasks.forEach(task => {
+                    const status = taskSet.has(task.id) ? "Fait" : "À faire";
+                    csvContent += `"${chantier}";"${supportNum}";"${type}";"${task.tache}";"${status}"\n`;
+                });
+            }
+        }
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
