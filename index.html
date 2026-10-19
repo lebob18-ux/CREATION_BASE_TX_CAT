@@ -523,7 +523,46 @@ function isChapterVisible(type, support) {
         el.classList.toggle('open');
         openChapters[type] = el.classList.contains('open');
     }
+    // ===== Cochage automatique de l'ENVIRONNEMENT =====
+    const AUTO_ENV_RULES = [
+        { chapitre: 'GC',     motsCles: ['FOUILLE'] },
+        { chapitre: 'DEPOSE', motsCles: ['SUPPORT', 'EPINGLE'] }
+    ];
+    const ENV_CHAPITRE = 'ENVIRON'; // début du nom du chapitre environnement
 
+    function normTxt(s) {
+        return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    }
+
+    function chapterTokens(type) {
+        return normTxt(type).split(/[^A-Z0-9]+/).filter(Boolean);
+    }
+
+    function applyAutoEnvironnement(typeToggled) {
+        const tokensToggled = chapterTokens(typeToggled);
+
+        const triggered = AUTO_ENV_RULES.some(rule => {
+            if (!tokensToggled.includes(rule.chapitre)) return false;
+            return (tasksByChapter[typeToggled] || []).some(t =>
+                taskStates[t.id] && rule.motsCles.some(k => normTxt(t.tache).includes(k))
+            );
+        });
+        if (!triggered) return;
+
+        Object.keys(tasksByChapter).forEach(envType => {
+            if (!chapterTokens(envType).some(tok => tok.startsWith(ENV_CHAPITRE))) return;
+            const envTasks = tasksByChapter[envType];
+            envTasks.forEach(t => {
+                taskStates[t.id] = true;
+                const chk = document.getElementById(`chk_${t.id}`);
+                const lbl = document.getElementById(`lbl_${t.id}`);
+                if (chk) chk.checked = true;
+                if (lbl) lbl.classList.add('done');
+            });
+            const badge = document.getElementById(`badge_${envType}`);
+            if (badge) badge.textContent = `${envTasks.length} / ${envTasks.length} coche(s)`;
+        });
+    }
     function toggleTaskState(type, taskId) {
         const checkbox = document.getElementById(`chk_${taskId}`);
         const currentTask = allTasksMap[taskId];
@@ -562,6 +601,7 @@ function isChapterVisible(type, support) {
         if (badge) {
             badge.textContent = `${checkedCount} / ${chapterTasks.length} coche(s)`;
         }
+                if (checkbox.checked) applyAutoEnvironnement(type);
     }
 
     async function saveSupport() {
