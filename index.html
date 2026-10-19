@@ -456,7 +456,12 @@ const { data } = await fetchAllRows('releves_supports', 'support', q => q.eq('ch
     function onSupportInputChanged() {
         renderChapters();
     }
-
+function isChapterVisible(type, support) {
+    const containsAnc = (support || '').toLowerCase().includes('anc');
+    if (type === 'POSE_ANC' && !containsAnc) return false;
+    if (type === 'POSE_SUPPORT' && containsAnc) return false;
+    return true;
+}
     function renderChapters() {
         const container = document.getElementById('chaptersContainer');
         container.innerHTML = '';
@@ -576,6 +581,7 @@ const { data } = await fetchAllRows('releves_supports', 'support', q => q.eq('ch
 
         const rowsToInsert = [];
         for (const [type, tasks] of Object.entries(tasksByChapter)) {
+            if (!isChapterVisible(type, support)) continue;
             tasks.forEach(task => {
                 if (taskStates[task.id]) {
                     rowsToInsert.push({
@@ -653,6 +659,7 @@ const { data } = await fetchAllRows('releves_supports', 'support', q => q.eq('ch
         data.forEach(row => {
             const type = row.taches_support ? row.taches_support.type : "";
             const tache = row.taches_support ? row.taches_support.tache : "";
+            if (!isChapterVisible(type, row.support)) return;
             csvContent += `"${chantier}";"${row.support}";"${type}";"${tache}"\n`;
         });
 
